@@ -129,7 +129,6 @@ script_dir = os.path.dirname(os.path.abspath(__file__))
 
 # Path to your custom icon image (assuming it's in the same directory as the script)
 custom_icon_path = os.path.join(script_dir, "ytico.png")
-
 # Function to create the icon image
 def create_image():
     try:
