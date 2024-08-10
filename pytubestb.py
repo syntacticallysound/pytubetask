@@ -1,5 +1,5 @@
 import os
-import pytube
+import pytubefix
 import keyboard
 import pystray
 from pystray import MenuItem as item
@@ -9,6 +9,7 @@ from plyer import notification
 import csv
 from datetime import datetime
 import json
+import threading
 
 # Configuration file path
 config_file = os.path.expanduser("~/.youtube_downloader_config.json")
@@ -44,33 +45,56 @@ def update_history_file_location():
             writer = csv.writer(file)
             writer.writerow(["Title", "URL", "Date", "Time"])
 
-# Function to download YouTube video
+# Function to download YouTube video or playlist
 def download_video():
     global download_location, history_file
     clipboard_content = Tk().clipboard_get()
-    if 'youtube.com' in clipboard_content:
+    
+    if 'youtube.com' in clipboard_content or 'youtu.be' in clipboard_content:
         try:
             notification.notify(
                 title='YouTube Downloader',
                 message='Download started...',
                 timeout=2
             )
-            yt = pytube.YouTube(clipboard_content)
-            stream = yt.streams.get_highest_resolution()
-            stream.download(download_location)
             
-            # Log the download
-            now = datetime.now()
-            with open(history_file, mode='a', newline='') as file:
-                writer = csv.writer(file)
-                writer.writerow([stream.title, clipboard_content, now.strftime("%Y-%m-%d"), now.strftime("%H:%M:%S")])
-            
-            notification.notify(
-                title='YouTube Downloader',
-                message=f'Download completed: {stream.title}',
-                timeout=2
-            )
-            print(f'Download completed: {stream.title}')
+            # Check if it's a playlist
+            if "playlist" in clipboard_content or "list=" in clipboard_content:
+                playlist = pytubefix.Playlist(clipboard_content)
+                for video in playlist.videos:
+                    stream = video.streams.get_highest_resolution()
+                    stream.download(download_location)
+                    
+                    # Log the download
+                    now = datetime.now()
+                    with open(history_file, mode='a', newline='') as file:
+                        writer = csv.writer(file)
+                        writer.writerow([stream.title, video.watch_url, now.strftime("%Y-%m-%d"), now.strftime("%H:%M:%S")])
+                    
+                    notification.notify(
+                        title='YouTube Downloader',
+                        message=f'Download completed: {stream.title}',
+                        timeout=2
+                    )
+                    print(f'Download completed: {stream.title}')
+            else:
+                yt = pytubefix.YouTube(clipboard_content)
+                stream = yt.streams.get_highest_resolution()
+                stream.download(download_location)
+                
+                # Log the download
+                now = datetime.now()
+                with open(history_file, mode='a', newline='') as file:
+                    writer = csv.writer(file)
+                    writer.writerow([stream.title, clipboard_content, now.strftime("%Y-%m-%d"), now.strftime("%H:%M:%S")])
+                
+                notification.notify(
+                    title='YouTube Downloader',
+                    message=f'Download completed: {stream.title}',
+                    timeout=2
+                )
+                print(f'Download completed: {stream.title}')
+        
         except Exception as e:
             notification.notify(
                 title='YouTube Downloader',
@@ -86,18 +110,18 @@ def download_video():
         )
         print('No valid YouTube URL found in clipboard.')
 
-# Function to set new download location
-def set_download_location():
+# Helper function for setting download location
+def _set_download_location():
     global download_location, history_file
     root = Tk()
     root.withdraw()
     download_location = filedialog.askdirectory(initialdir=download_location)
     root.destroy()
-    
+
     # Update history file location
     update_history_file_location()
     save_settings()
-    
+
     notification.notify(
         title='YouTube Downloader',
         message=f'New download location: {download_location}',
@@ -105,8 +129,12 @@ def set_download_location():
     )
     print(f'New download location: {download_location}')
 
-# Function to set new shortcut key
-def set_shortcut_key():
+# Function to set new download location
+def set_download_location():
+    threading.Thread(target=_set_download_location).start()
+
+# Helper function for setting shortcut key
+def _set_shortcut_key():
     global shortcut_key
     root = Tk()
     root.withdraw()
@@ -124,11 +152,16 @@ def set_shortcut_key():
         )
         print(f'New shortcut key: {shortcut_key}')
 
+# Function to set new shortcut key
+def set_shortcut_key():
+    threading.Thread(target=_set_shortcut_key).start()
+
 # Get the directory path of the current script
 script_dir = os.path.dirname(os.path.abspath(__file__))
 
 # Path to your custom icon image (assuming it's in the same directory as the script)
 custom_icon_path = os.path.join(script_dir, "ytico.png")
+
 # Function to create the icon image
 def create_image():
     try:
