@@ -1,0 +1,5 @@
+pytube
+keyboard
+pystray
+Pillow
+plyer
