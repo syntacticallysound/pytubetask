@@ -10,7 +10,7 @@ import csv
 from datetime import datetime
 import json
 import threading
-
+from win10toast import ToastNotifier
 # Configuration file path
 config_file = os.path.expanduser("~/.youtube_downloader_config.json")
 
@@ -55,6 +55,8 @@ def download_video():
             notification.notify(
                 title='YouTube Downloader',
                 message='Download started...',
+                app_name='YouTube Downloader',
+                app_icon = "F:\\Code\\Python Projects\\pytubetask\\ytico.ico",
                 timeout=2
             )
             
@@ -74,6 +76,8 @@ def download_video():
                     notification.notify(
                         title='YouTube Downloader',
                         message=f'Download completed: {stream.title}',
+                        app_name='YouTube Downloader',
+                        app_icon = 'toast.ico',
                         timeout=2
                     )
                     print(f'Download completed: {stream.title}')
@@ -89,9 +93,11 @@ def download_video():
                     writer.writerow([stream.title, clipboard_content, now.strftime("%Y-%m-%d"), now.strftime("%H:%M:%S")])
                 
                 notification.notify(
-                    title='YouTube Downloader',
-                    message=f'Download completed: {stream.title}',
-                    timeout=2
+                        title='YouTube Downloader',
+                        message=f'Download completed: {stream.title}',
+                        app_name='YouTube Downloader',
+                        app_icon = "F:\\Code\\Python Projects\\pytubetask\\ytico.ico",
+                        timeout=2
                 )
                 print(f'Download completed: {stream.title}')
         

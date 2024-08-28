@@ -1,3 +1,5 @@
-from pytube import YouTube
-yt = YouTube('http://youtube.com/watch?v=9bZkp7q19f0')
-print(yt.streams)
+from win10toast import ToastNotifier
+toaster = ToastNotifier()
+toaster.show_toast("Hello World!!!",
+"Python is 10 seconds awsm!",
+duration=10)
