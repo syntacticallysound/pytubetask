@@ -1,18 +1,27 @@
-import os
-import pytubefix
-import keyboard
-import pystray
-from pystray import MenuItem as item
-from PIL import Image, ImageDraw
-from tkinter import Tk, filedialog, simpledialog
-from plyer import notification
+# Standard library imports
 import csv
-from datetime import datetime
 import json
+import os
 import threading
-from win10toast import ToastNotifier
+from datetime import datetime
+from tkinter import Tk, filedialog, simpledialog
+
+# Third-party imports
+import keyboard
+import pytubefix
+from PIL import Image, ImageDraw
+from plyer import notification
+from pystray import MenuItem as item
+import pystray
+
+
 # Configuration file path
 config_file = os.path.expanduser("~/.youtube_downloader_config.json")
+
+# Global variables
+download_location = os.path.expanduser("~")
+shortcut_key = 'ctrl+shift+y'
+history_file = os.path.join(download_location, "download_history.csv")
 
 # Load settings from configuration file
 def load_settings():
@@ -22,9 +31,6 @@ def load_settings():
             settings = json.load(file)
             download_location = settings.get('download_location', os.path.expanduser("~"))
             shortcut_key = settings.get('shortcut_key', 'ctrl+shift+y')
-    else:
-        download_location = os.path.expanduser("~")
-        shortcut_key = 'ctrl+shift+y'
     update_history_file_location()
 
 # Save settings to configuration file
@@ -41,148 +47,106 @@ def update_history_file_location():
     global history_file
     history_file = os.path.join(download_location, "download_history.csv")
     if not os.path.exists(history_file):
-        with open(history_file, mode='w', newline='') as file:
+        with open(history_file, mode='w', newline='', encoding='utf-8') as file:
             writer = csv.writer(file)
             writer.writerow(["Title", "URL", "Date", "Time"])
+
+# Notify helper function
+def notify(title, message, icon_path='ytico.ico'):
+    notification.notify(
+        title=title,
+        message=message,
+        app_name='YouTube Downloader',
+        app_icon= None,
+        timeout=2
+    )
 
 # Function to download YouTube video or playlist
 def download_video():
     global download_location, history_file
     clipboard_content = Tk().clipboard_get()
-    
+
     if 'youtube.com' in clipboard_content or 'youtu.be' in clipboard_content:
         try:
-            notification.notify(
-                title='YouTube Downloader',
-                message='Download started...',
-                app_name='YouTube Downloader',
-                app_icon = "F:\\Code\\Python Projects\\pytubetask\\ytico.ico",
-                timeout=2
-            )
-            
-            # Check if it's a playlist
+            notify("YouTube Downloader", "Download started...")
             if "playlist" in clipboard_content or "list=" in clipboard_content:
                 playlist = pytubefix.Playlist(clipboard_content)
                 for video in playlist.videos:
                     stream = video.streams.get_highest_resolution()
                     stream.download(download_location)
-                    
-                    # Log the download
+
                     now = datetime.now()
-                    with open(history_file, mode='a', newline='') as file:
+                    with open(history_file, mode='a', newline='', encoding='utf-8') as file:
                         writer = csv.writer(file)
                         writer.writerow([stream.title, video.watch_url, now.strftime("%Y-%m-%d"), now.strftime("%H:%M:%S")])
-                    
-                    notification.notify(
-                        title='YouTube Downloader',
-                        message=f'Download completed: {stream.title}',
-                        app_name='YouTube Downloader',
-                        app_icon = 'toast.ico',
-                        timeout=2
-                    )
-                    print(f'Download completed: {stream.title}')
+
+                    notify("YouTube Downloader", f"Download completed: {stream.title}")
+                    print(f"Download completed: {stream.title}")
             else:
                 yt = pytubefix.YouTube(clipboard_content)
                 stream = yt.streams.get_highest_resolution()
                 stream.download(download_location)
-                
-                # Log the download
+
                 now = datetime.now()
-                with open(history_file, mode='a', newline='') as file:
+                with open(history_file, mode='a', newline='', encoding='utf-8') as file:
                     writer = csv.writer(file)
                     writer.writerow([stream.title, clipboard_content, now.strftime("%Y-%m-%d"), now.strftime("%H:%M:%S")])
-                
-                notification.notify(
-                        title='YouTube Downloader',
-                        message=f'Download completed: {stream.title}',
-                        app_name='YouTube Downloader',
-                        app_icon = "F:\\Code\\Python Projects\\pytubetask\\ytico.ico",
-                        timeout=2
-                )
-                print(f'Download completed: {stream.title}')
-        
-        except Exception as e:
-            notification.notify(
-                title='YouTube Downloader',
-                message=f'Error: {e}',
-                timeout=2
-            )
-            print(f'Error downloading video: {e}')
-    else:
-        notification.notify(
-            title='YouTube Downloader',
-            message='No valid YouTube URL found in clipboard.',
-            timeout=2
-        )
-        print('No valid YouTube URL found in clipboard.')
 
-# Helper function for setting download location
-def _set_download_location():
-    global download_location, history_file
+                notify("YouTube Downloader", f"Download completed: {stream.title}")
+                print(f"Download completed: {stream.title}")
+        except Exception as e:
+            notify("YouTube Downloader", f"Error: {e}")
+            print(f"Error downloading video: {e}")
+    else:
+        notify("YouTube Downloader", "No valid YouTube URL found in clipboard.")
+        print("No valid YouTube URL found in clipboard.")
+
+# Function to set download location
+def set_download_location():
+    global download_location
     root = Tk()
     root.withdraw()
     download_location = filedialog.askdirectory(initialdir=download_location)
     root.destroy()
 
-    # Update history file location
     update_history_file_location()
     save_settings()
+    notify("YouTube Downloader", f"New download location: {download_location}")
 
-    notification.notify(
-        title='YouTube Downloader',
-        message=f'New download location: {download_location}',
-        timeout=2
-    )
-    print(f'New download location: {download_location}')
-
-# Function to set new download location
-def set_download_location():
-    threading.Thread(target=_set_download_location).start()
-
-# Helper function for setting shortcut key
-def _set_shortcut_key():
+# Function to set shortcut key
+def set_shortcut_key():
     global shortcut_key
     root = Tk()
     root.withdraw()
     new_shortcut = simpledialog.askstring("Shortcut Key", "Enter new shortcut key combination:", initialvalue=shortcut_key)
     root.destroy()
+
     if new_shortcut:
         keyboard.remove_hotkey(shortcut_key)
         shortcut_key = new_shortcut
         keyboard.add_hotkey(shortcut_key, download_video)
         save_settings()
-        notification.notify(
-            title='YouTube Downloader',
-            message=f'New shortcut key: {shortcut_key}',
-            timeout=2
-        )
-        print(f'New shortcut key: {shortcut_key}')
+        notify("YouTube Downloader", f"New shortcut key: {shortcut_key}")
 
-# Function to set new shortcut key
-def set_shortcut_key():
-    threading.Thread(target=_set_shortcut_key).start()
-
-# Get the directory path of the current script
-script_dir = os.path.dirname(os.path.abspath(__file__))
-
-# Path to your custom icon image (assuming it's in the same directory as the script)
-custom_icon_path = os.path.join(script_dir, "ytico.png")
-
-# Function to create the icon image
+# Create icon image for the taskbar menu
 def create_image():
-    try:
-        icon_image = Image.open(custom_icon_path)
-        return icon_image
-    except Exception as e:
-        print(f"Error loading custom icon: {e}")
-        # If loading the custom icon fails, fallback to default icon
-        width = 64
-        height = 64
-        image = Image.new('RGB', (width, height), (255, 255, 255))
-        dc = ImageDraw.Draw(image)
-        dc.rectangle((width // 2, 0, width, height // 2), fill=(0, 0, 0))
-        dc.rectangle((0, height // 2, width // 2, height), fill=(0, 0, 0))
-        return image
+    width, height = 64, 64
+    icon = Image.new('RGB', (width, height), color=(255, 255, 255))  # White background
+    draw = ImageDraw.Draw(icon)
+
+    # Draw red rectangle (YouTube's background color)
+    margin = 0
+    draw.rectangle([margin, margin, width - margin, height - margin], fill=(255, 0, 0))
+
+    # Draw white play button (triangle)
+    play_button = [
+        (margin + 10, margin + 8),                # Left point
+        (width - margin - 10, height // 2),       # Right center
+        (margin + 10, height - margin - 8)        # Bottom point
+    ]
+    draw.polygon(play_button, fill=(255, 255, 255))
+
+    return icon
 
 # Menu for the taskbar icon
 menu = (
